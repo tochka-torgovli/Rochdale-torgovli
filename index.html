@@ -6,6 +6,8 @@
 
   <title>ТОЧКА ТОРГОВЛИ</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -15,7 +17,7 @@
       margin: 0;
       min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f4f5f7;
+      background: #f3f4f6;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -25,7 +27,7 @@
     .login {
       width: 100%;
       max-width: 420px;
-      background: white;
+      background: #ffffff;
       border-radius: 24px;
       padding: 35px 25px;
       box-shadow: 0 10px 35px rgba(0,0,0,0.08);
@@ -33,9 +35,8 @@
 
     .logo {
       text-align: center;
-      font-size: 27px;
+      font-size: 28px;
       font-weight: 800;
-      letter-spacing: -0.5px;
       margin-bottom: 8px;
     }
 
@@ -62,7 +63,7 @@
     }
 
     input:focus {
-      border-color: #222;
+      border-color: #111;
     }
 
     button {
@@ -77,15 +78,67 @@
       cursor: pointer;
     }
 
-    button:active {
-      transform: scale(0.99);
+    button:disabled {
+      opacity: 0.6;
+    }
+
+    .message {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 10px;
+      display: none;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .error {
+      display: block;
+      background: #fff0f0;
+      color: #b00020;
+    }
+
+    .success {
+      display: block;
+      background: #eefbf1;
+      color: #167333;
+    }
+
+    .dashboard {
+      display: none;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .welcome {
+      background: white;
+      border-radius: 24px;
+      padding: 30px 25px;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.08);
+    }
+
+    .welcome h1 {
+      margin-top: 0;
+      font-size: 26px;
+    }
+
+    .role {
+      color: #666;
+      margin-bottom: 25px;
+    }
+
+    .logout {
+      background: #eeeeee;
+      color: #111;
+      margin-top: 20px;
     }
   </style>
 </head>
 
 <body>
 
-  <div class="login">
+  <!-- ЭКРАН ВХОДА -->
+
+  <div class="login" id="loginScreen">
 
     <div class="logo">
       ТОЧКА ТОРГОВЛИ
@@ -95,39 +148,464 @@
       Вход в систему
     </div>
 
-    <form>
+    <form id="loginForm">
 
       <label for="name">Имя</label>
+
       <input
         id="name"
         type="text"
         placeholder="Введите имя"
+        autocomplete="name"
         required
       >
 
       <label for="phone">Номер телефона</label>
+
       <input
         id="phone"
         type="tel"
         placeholder="+7 700 000 00 00"
+        autocomplete="tel"
         required
       >
 
       <label for="password">Пароль</label>
+
       <input
         id="password"
         type="password"
         placeholder="Введите пароль"
+        autocomplete="current-password"
         required
       >
 
-      <button type="submit">
+      <button id="loginButton" type="submit">
         ВОЙТИ
       </button>
 
     </form>
 
+    <div id="message" class="message"></div>
+
   </div>
+
+
+  <!-- КАБИНЕТ -->
+
+  <div class="dashboard" id="dashboard">
+
+    <div class="welcome">
+
+      <h1 id="welcomeName">
+        Добро пожаловать
+      </h1>
+
+      <div class="role" id="welcomeRole"></div>
+
+      <div id="dashboardContent"></div>
+
+      <button
+        class="logout"
+        id="logoutButton"
+      >
+        ВЫЙТИ
+      </button>
+
+    </div>
+
+  </div>
+
+
+<script>
+
+  // ==============================
+  // SUPABASE
+  // ==============================
+
+  const SUPABASE_URL =
+    "https://hzmmasbqssnwyjhnredp.supabase.co";
+
+  const SUPABASE_KEY =
+    "sb_publishable_xuWeeiQjzz48hhfcx5D74A_j9kIoA6N";
+
+
+  const supabaseClient =
+    window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+
+  // ==============================
+  // ЭЛЕМЕНТЫ
+  // ==============================
+
+  const loginScreen =
+    document.getElementById("loginScreen");
+
+  const dashboard =
+    document.getElementById("dashboard");
+
+  const loginForm =
+    document.getElementById("loginForm");
+
+  const loginButton =
+    document.getElementById("loginButton");
+
+  const message =
+    document.getElementById("message");
+
+  const welcomeName =
+    document.getElementById("welcomeName");
+
+  const welcomeRole =
+    document.getElementById("welcomeRole");
+
+  const dashboardContent =
+    document.getElementById("dashboardContent");
+
+  const logoutButton =
+    document.getElementById("logoutButton");
+
+
+  // ==============================
+  // СООБЩЕНИЕ
+  // ==============================
+
+  function showMessage(text, type = "error") {
+
+    message.textContent = text;
+
+    message.className =
+      "message " + type;
+
+  }
+
+
+  // ==============================
+  // ВХОД
+  // ==============================
+
+  loginForm.addEventListener(
+    "submit",
+    async function(event) {
+
+      event.preventDefault();
+
+      const name =
+        document.getElementById("name")
+          .value
+          .trim();
+
+      const phone =
+        document.getElementById("phone")
+          .value
+          .trim();
+
+      const password =
+        document.getElementById("password")
+          .value;
+
+
+      if (!name || !phone || !password) {
+
+        showMessage(
+          "Заполните все поля."
+        );
+
+        return;
+      }
+
+
+      loginButton.disabled = true;
+
+      loginButton.textContent =
+        "ВХОД...";
+
+
+      showMessage(
+        "",
+        ""
+      );
+
+
+      try {
+
+        // Авторизация по телефону и паролю
+        const {
+          data,
+          error
+        } =
+          await supabaseClient.auth
+            .signInWithPassword({
+
+              phone: phone,
+
+              password: password
+
+            });
+
+
+        if (error) {
+
+          throw error;
+
+        }
+
+
+        const user =
+          data.user;
+
+
+        if (!user) {
+
+          throw new Error(
+            "Пользователь не найден."
+          );
+
+        }
+
+
+        // Получаем профиль
+        const {
+          data: profile,
+          error: profileError
+        } =
+          await supabaseClient
+            .from("user_profiles")
+            .select(
+              "id, full_name, phone, role, active"
+            )
+            .eq("id", user.id)
+            .single();
+
+
+        if (profileError) {
+
+          throw new Error(
+            "Не удалось получить профиль пользователя."
+          );
+
+        }
+
+
+        // Проверяем активность
+        if (!profile.active) {
+
+          await supabaseClient.auth.signOut();
+
+          throw new Error(
+            "Этот аккаунт отключён."
+          );
+
+        }
+
+
+        // Проверяем имя
+        if (
+          profile.full_name
+            .trim()
+            .toLowerCase()
+          !==
+          name
+            .trim()
+            .toLowerCase()
+        ) {
+
+          await supabaseClient.auth.signOut();
+
+          throw new Error(
+            "Имя не соответствует аккаунту."
+          );
+
+        }
+
+
+        // Всё хорошо
+        openDashboard(profile);
+
+
+      } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+          error.message ||
+          "Не удалось выполнить вход."
+        );
+
+      }
+
+
+      loginButton.disabled = false;
+
+      loginButton.textContent =
+        "ВОЙТИ";
+
+    }
+  );
+
+
+  // ==============================
+  // ОТКРЫВАЕМ КАБИНЕТ
+  // ==============================
+
+  function openDashboard(profile) {
+
+    loginScreen.style.display =
+      "none";
+
+    dashboard.style.display =
+      "block";
+
+
+    welcomeName.textContent =
+      "Здравствуйте, " +
+      profile.full_name;
+
+
+    if (profile.role === "manager") {
+
+      welcomeRole.textContent =
+        "👨‍💼 Менеджер";
+
+
+      dashboardContent.innerHTML = `
+
+        <p>
+          Вы вошли в систему как менеджер.
+        </p>
+
+        <p>
+          Здесь будет кабинет управления
+          торговыми, точками, товарами,
+          заявками и сроками годности.
+        </p>
+
+      `;
+
+    }
+
+    else if (profile.role === "sales_rep") {
+
+      welcomeRole.textContent =
+        "🚚 Торговый";
+
+
+      dashboardContent.innerHTML = `
+
+        <p>
+          Вы вошли в систему как торговый.
+        </p>
+
+        <p>
+          Здесь будет ваш маршрут,
+          торговые точки, заказы и заявки.
+        </p>
+
+      `;
+
+    }
+
+    else {
+
+      welcomeRole.textContent =
+        "Пользователь";
+
+
+      dashboardContent.innerHTML = `
+
+        <p>
+          Для этого аккаунта роль ещё
+          не настроена.
+        </p>
+
+      `;
+
+    }
+
+  }
+
+
+  // ==============================
+  // ВЫХОД
+  // ==============================
+
+  logoutButton.addEventListener(
+    "click",
+    async function() {
+
+      await supabaseClient.auth.signOut();
+
+      dashboard.style.display =
+        "none";
+
+      loginScreen.style.display =
+        "block";
+
+      loginForm.reset();
+
+      showMessage(
+        "Вы вышли из системы.",
+        "success"
+      );
+
+    }
+  );
+
+
+  // ==============================
+  // ПРОВЕРКА СУЩЕСТВУЮЩЕЙ СЕССИИ
+  // ==============================
+
+  async function checkSession() {
+
+    const {
+      data
+    } =
+      await supabaseClient.auth
+        .getSession();
+
+
+    if (!data.session) {
+
+      return;
+
+    }
+
+
+    const user =
+      data.session.user;
+
+
+    const {
+      data: profile
+    } =
+      await supabaseClient
+        .from("user_profiles")
+        .select(
+          "id, full_name, phone, role, active"
+        )
+        .eq("id", user.id)
+        .single();
+
+
+    if (
+      profile &&
+      profile.active
+    ) {
+
+      openDashboard(profile);
+
+    }
+
+  }
+
+
+  checkSession();
+
+</script>
 
 </body>
 </html>
